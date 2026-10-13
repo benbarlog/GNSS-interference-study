@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gnss"
+version = "0.1.0"
+description = "GNSS interference hotspots: spatial autocorrelation of ADS-B-derived GPS interference"
+requires-python = ">=3.11"
+dependencies = [
+    # core
+    "pandas",
+    "numpy",
+    "pyarrow",
+    "duckdb",
+    "requests",
+    "pyyaml",
+    "tqdm",
+    # geo (h3 v4 API)
+    "geopandas",
+    "shapely",
+    "h3>=4",
+    "libpysal",
+    "esda",
+    "splot",
+    "mapclassify",
+    "contextily",
+    # viz
+    "matplotlib",
+    "seaborn",
+    "pydeck",
+    "imageio",
+    # stats
+    "statsmodels",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "jupyterlab",
+    "ipykernel",
+    "ruff",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]

@@ -1,0 +1,26 @@
+# Data (never commit)
+data/
+
+# Large archives
+*.tar
+*.tar.*
+*.parquet
+
+# Secrets
+.env
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
