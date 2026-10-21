@@ -1,0 +1,67 @@
+# adsb.lol ingest/processing pipeline configuration (see adsb_lol_pipeline_plan.md).
+# Every adsb.lol script reads this file. A copy is written to <data_root>/config/adsblol.yaml
+# at the start of each run, next to the outputs.
+
+data_root: D:/gnss-data
+contact_email: benjibarlog86@gmail.com
+repo_url: https://github.com/Benji-alt-acc/GNSS-interference-study
+
+archive:
+  repos: [2023, 2024, 2025, 2026]     # adsblol/globe_history_<year>; the current year is added automatically
+  earliest_date: 2023-02-16
+  significantly_smaller_frac: 0.20     # a prod/staging variant this much smaller than the largest is skipped
+  catalog_refresh_hours: 6             # follow mode only; normal runs refresh the current repo once per run
+
+download:
+  max_connections: 2                   # hard ceiling 2 (plan §9.1)
+  max_download_mbps: null              # null = unlimited; ~85 if browsing feels sluggish
+  buffer_high_water_gib: 300           # pause starting new days above this much unprocessed raw data
+  min_free_gib: 60                     # never let D: drop below this
+  chunk_mib: 4
+  metadata_min_interval_s: 1.0         # spacing between catalog / HEAD / API / GPSJAM requests
+  backoff_initial_s: 30
+  backoff_max_s: 1800
+  pause_after_failures: 5              # consecutive failures before a long pause
+  pause_s: 3600
+  timeout_s: 60
+
+process:
+  workers: 8
+  batch_traces: 200
+  max_inflight_batches: 16             # bounds RAM: ~8 MB of compressed traces per batch
+  maxtasksperchild: 200
+  # Everything below changes the outputs and feeds config_hash.
+  staleness_s: 120                     # forward-fill cap for NIC/NACp/SIL/version/category/squawk
+  dt_cap_s: 60                         # time weight cap per point
+  jump_kt: 1000                        # implied speed above this is a position jump
+  min_dt_implied_s: 1.0                # shortest interval used for implied speed
+  max_dt_mismatch_s: 30                # longest interval used for |implied - reported| speed
+  high_roll_deg: 30
+  h3_res: 5
+  nic_bad_lt: 7                        # only for aircraft_dim.nic_lt7_s_day and exception selection
+
+exceptions:
+  include_nic_unknown: true            # NIC unknown after the staleness cap counts as degraded
+  context_s: 120
+  downsample_s: 10
+
+qa:
+  min_nic_known_share: 0.5
+  max_nic_known_share: 1.0
+  min_adsb_share: 0.5
+  max_parse_error_share: 0.01
+  min_traces_frac_of_median: 0.5       # fewer traces than this x the median of recent days = truncated
+  gpsjam_min_aircraft: 5
+  gpsjam_bad_rate: 0.10
+  aircraft_bad_share: 0.5              # aircraft is bad in a hex when this share of its known-NIC time is NIC < nic_bad_lt
+  warn_spearman_below: 0.5
+  outlier_z: 4
+
+schedule:
+  windows_file: schedule/windows.yaml
+
+pipeline:
+  heartbeat_sec: 60
+  max_retries: 3
+  follow_poll_hours: 6
+  prevent_sleep: true                  # asks Windows not to sleep while the pipeline runs

@@ -22,9 +22,13 @@ dependencies = [
     "h3>=4",
     "libpysal",
     "esda",
+    "spreg",
+    "mgwr",
     "splot",
     "mapclassify",
     "contextily",
+    "rasterio",
+    "scipy",
     # viz
     "matplotlib",
     "seaborn",
@@ -32,6 +36,13 @@ dependencies = [
     "imageio",
     # stats
     "statsmodels",
+    # adsb.lol pipeline
+    "orjson",
+    "isal",
+    "numba",
+    "psutil",
+    "rich",
+    "winotify; sys_platform == 'win32'",
 ]
 
 [project.optional-dependencies]

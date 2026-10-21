@@ -1,0 +1,106 @@
+# Analysis configuration (GPSJAM + adsb.lol Tier 2 → spatial statistics, covariates, models).
+# Read by gnss.analysis.*, scripts/build_covariates.py and scripts/run_analysis.py.
+# Regions and case windows come from schedule/windows.yaml; this file adds what only the analysis uses.
+
+# Small inputs live in the repo's data/ (gitignored, synced by OneDrive to the desktop).
+# Large inputs (Tier 1/2, daily GPSJAM) live under adsblol.yaml `data_root` (D:/gnss-data).
+covariates_dir: data/raw/covariates
+naturalearth: data/raw/naturalearth/ne_50m_admin_0_countries.zip
+outputs_dir: data/processed/analysis
+figures_dir: figures/analysis
+
+# Which hex x day source to analyse. adsblol = Tier 2 hex_day tables; gpsjam = daily CSVs.
+# `gpsjam` works on the laptop (repo sample); `adsblol` needs the desktop's D: drive.
+source: adsblol
+fallback_gpsjam_dir: data/raw/gpsjam    # used when <data_root>/gpsjam is missing (laptop)
+
+rate:
+  res: 4
+  nic_lt: 7                    # adsb.lol only: NIC below this is "bad"
+  aircraft_bad_share: 0.5      # adsb.lol only: aircraft is bad in a hex if >= this share of its known-NIC time is bad
+  min_n: 5                     # aircraft per hex-day for a rate to count as observed
+  bad_rate: 0.10               # GPSJAM's red threshold: hex-day is "degraded" above this
+  # Faulty-avionics filter (adsb.lol only). Decided 2026-10-20: an aircraft that is low-NIC all day
+  # is assumed jammed, NOT faulty, unless most of its time is in hexes where other aircraft were fine.
+  faulty:
+    min_known_s: 600           # needs at least 10 min of known-NIC time that day
+    bad_share: 0.95            # and NIC < nic_lt for >= 95% of it
+    others_bad_below: 0.10     # a hex is "clean" for it when the other aircraft's bad share is below this
+    min_others: 2              # ... and at least this many other aircraft were there
+    clean_time_share: 0.5      # flagged only if >= 50% of its known time was in clean hexes
+  min_days: 10                 # hex needs this many observed days for a window-level persistence value
+
+spatial:
+  permutations: 999
+  alpha: 0.05
+  fdr: true
+  seed: 12345
+  island_policy: k2            # drop | k2 (add ring-2 neighbours for cells with no ring-1 neighbour)
+  knn_k: 6                     # KNN sensitivity weights
+  n_jobs: 1                    # LISA permutation workers; try -1 on the desktop (VERIFY speed-up)
+
+# Extra analysis regions not used by the scheduler: the falsification test and the control.
+# [lat_min, lat_max, lon_min, lon_max], centroid-in-bbox.
+extra_regions:
+  taiwan_strait:  [20, 28, 115, 125]
+  korea:          [34, 40, 124, 130]
+  myanmar:        [14, 24, 92, 100]
+  conus_control:  [30, 45, -110, -80]
+
+# Regions entering the cross-sectional model (one pooled hex sample per window).
+model_regions: [baltic, black_sea, levant, persian_gulf, caucasus, nw_russia, poland, red_sea,
+                taiwan_strait, korea, conus_control]
+
+covariates:
+  conflict_radii_km: [100, 250, 500]
+  conflict_lag_days: 3          # events in [day - lag, day] count toward a hex-day
+  ucdp_min_where_prec: 4        # drop events located only to province level or coarser (5 = adm1, 6 = country, 7 = intl waters)
+  # Military installations from OpenStreetMap (Overpass). Each tag is queried per region bbox.
+  # `base` is left out: it is very common (barracks, depots) and too heavy for public Overpass.
+  osm_military_tags: [airfield, naval_base]
+  osm_pad_deg: 5                # pad region bboxes so nearest-base distance is right at region edges
+  # ACLED (needs ACLED_EMAIL / ACLED_PASSWORD in .env; register with a university email for
+  # event-level "Research" access). Countries cover every analysis region; protests/riots excluded.
+  acled:
+    start: 2023-01-01
+    radius_km: 250
+    countries: [Russia, Ukraine, Belarus, Moldova, Poland, Lithuania, Latvia, Estonia, Finland,
+                Sweden, Romania, Bulgaria, Turkey, Georgia, Armenia, Azerbaijan,
+                Israel, Palestine, Lebanon, Syria, Jordan, Egypt, Iraq, Iran, Saudi Arabia, Yemen,
+                United Arab Emirates, Oman, Qatar, Bahrain, Kuwait, Sudan, Eritrea, Djibouti,
+                India, Pakistan, Afghanistan, Myanmar, China, Taiwan, North Korea, South Korea,
+                United States]
+  # States at war, by period. A hex's border distance = distance to the nearest of these states'
+  # land borders active on the window's dates. ISO A3 codes as in Natural Earth (ADM0_A3).
+  # VERIFY periods against UCDP/news; edit freely.
+  belligerents:
+    - {iso3: [RUS, UKR], start: 2022-02-24, end: null}
+    - {iso3: [ISR],      start: 2023-10-07, end: null}
+    - {iso3: [PSX],      start: 2023-10-07, end: null}     # Natural Earth code for Palestine
+    - {iso3: [LBN],      start: 2023-10-08, end: 2024-11-27}
+    - {iso3: [SYR],      start: 2022-02-14, end: null}
+    - {iso3: [YEM],      start: 2022-02-14, end: null}
+    - {iso3: [IRN],      start: 2024-04-13, end: 2024-04-19}
+    - {iso3: [IRN],      start: 2024-10-01, end: 2024-10-26}
+    - {iso3: [IRN],      start: 2025-06-13, end: 2025-06-24}
+    - {iso3: [IRN],      start: 2026-02-28, end: 2026-07-16}
+    - {iso3: [AZE, ARM], start: 2023-09-19, end: 2023-09-20}
+    - {iso3: [IND, PAK], start: 2025-05-07, end: 2025-05-10}
+    - {iso3: [MMR],      start: 2022-02-14, end: null}
+    - {iso3: [SDN],      start: 2023-04-15, end: null}
+
+model:
+  # Outcome per hex over a window: logit of the EB-smoothed pooled bad rate, and persistence.
+  outcomes: [logit_eb_rate, persistence]
+  # Columns used if present; adsb.lol-only controls are silently skipped for the GPSJAM source.
+  drivers: [log_conflict_events_250, log_conflict_deaths_250, log_dist_conflict_km,
+            log_dist_military_km, log_dist_belligerent_km]
+  # Used instead of `drivers` when ACLED covers the whole window: separates stand-off (air, shelling),
+  # ground and interception events. UCDP distance-to-conflict stays as the location anchor.
+  drivers_acled: [log_acled_air_250, log_acled_shelling_250, log_acled_ground_250,
+                  log_acled_intercept_250, acled_standoff_share_250, log_dist_conflict_km,
+                  log_dist_military_km, log_dist_belligerent_km]
+  controls: [log_n_aircraft, abs_lat, share_high_alt, share_light_ac, share_v0,
+             share_high_roll, share_mlat]
+  mgwr_max_n: 2500              # MGWR only on samples up to this size (it is O(n^2) memory)
+  panel_radius_km: 250          # hex-day panel: conflict events within this radius

@@ -1,0 +1,110 @@
+# Case-study windows and tier rules for the adsb.lol download order (plan §3, §5).
+# Edit freely; `schedule.py` re-reads this file on every run. Order of `windows` = P1a/P1b order.
+# Dates come from public reporting. VERIFY each against daily GPSJAM: the pipeline writes suggested
+# edges to <data_root>/state/window_suggestions.yaml but never changes this file itself.
+
+test_day: 2025-06-14            # P0 (window H provisional peak); fixed so the benchmark stays comparable
+
+# Bounding boxes: [lat_min, lat_max, lon_min, lon_max]. A GPSJAM hex belongs to a region when its
+# centroid falls inside. `global` (no bbox) means every hex.
+regions:
+  baltic:         [53, 61, 13, 30]
+  levant:         [30, 37, 28, 37]
+  persian_gulf:   [23, 31, 47, 57]
+  hormuz:         [24, 28, 54, 58.5]
+  iran:           [25, 40, 44, 63]
+  iraq:           [29, 37.5, 38.5, 48.5]
+  syria:          [32, 37.5, 35.5, 42.5]
+  nw_russia:      [54, 70, 28, 45]
+  caucasus:       [38, 44, 40, 50.5]
+  red_sea:        [12, 24, 32, 45]
+  black_sea:      [41, 50, 24, 42]
+  poland:         [49, 55, 14, 24.5]
+  nordics_south:  [54.5, 60, 8, 19]
+  bulgaria:       [41, 44.5, 22, 29]
+  india_pakistan: [23, 37, 66, 80]
+  global:         null
+
+# Primary regions: used for picking quiet control days.
+primary_regions: [baltic, levant, persian_gulf]
+
+windows:
+  - id: H
+    name: Spiderweb / Israel-Iran 12-day war
+    start: 2025-05-28
+    end: 2025-07-01
+    regions: [levant, iran, persian_gulf, nw_russia]
+    peak: 2025-06-14
+  - id: E
+    name: Lebanon / Iran
+    start: 2024-09-10
+    end: 2024-10-31
+    regions: [levant, iran]
+    peak: 2024-10-01
+  - id: A
+    name: Nagorno-Karabakh / Oct 7
+    start: 2023-09-15
+    end: 2023-10-31
+    regions: [caucasus, levant]
+    peak: 2023-10-08
+  - id: I
+    name: Baltic / Poland drone incursions
+    start: 2025-08-28
+    end: 2025-09-30
+    regions: [baltic, poland, nordics_south, bulgaria]
+    peak: 2025-09-10
+  - id: C
+    name: Iran-Israel April 2024
+    start: 2024-04-06
+    end: 2024-04-24
+    regions: [levant, iran]
+    peak: 2024-04-14
+  - id: B
+    name: Baltic surge / Houthi strikes
+    start: 2023-12-20
+    end: 2024-01-25
+    regions: [baltic, red_sea, nw_russia]
+    peak: 2024-01-21
+  - id: G
+    name: India-Pakistan (Sindoor)
+    start: 2025-04-22
+    end: 2025-05-17
+    regions: [india_pakistan]
+    peak: 2025-05-08
+  - id: F
+    name: Fall of Assad
+    start: 2024-11-27
+    end: 2024-12-15
+    regions: [syria, levant]
+    peak: 2024-12-08
+  - id: D
+    name: Gannon geomagnetic storm (control)
+    start: 2024-05-08
+    end: 2024-05-14
+    regions: [global]
+    peak: 2024-05-11
+  - id: J
+    name: US strikes on Iran / Hormuz
+    start: 2026-02-21
+    end: 2026-07-16
+    regions: [persian_gulf, hormuz, iran, iraq, levant]
+    peak: 2026-02-28
+    # VERIFY against news and GPSJAM. The plan's "Feb 28 +/- 3" overlaps the baseline on purpose.
+    phases:
+      - {name: pre_strike_baseline, start: 2026-02-21, end: 2026-02-27}
+      - {name: opening_salvo,       start: 2026-02-25, end: 2026-03-03}
+      - {name: hormuz_campaign,     start: 2026-03-04, end: 2026-07-16}
+
+quiet_controls:
+  count: 2
+  lookback_days: 365
+  min_separation_days: 7
+
+recent:
+  days: 91                      # P2 = the latest N days at first scheduling (frozen afterwards)
+
+spikes:
+  z_threshold: 3.0              # provisional (plan §12)
+  baseline_days: 28
+  pad_days: 2
+  min_aircraft: 50              # region-day must have at least this many GPSJAM aircraft
